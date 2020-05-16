@@ -1,0 +1,130 @@
+---
+title: "Dimensionality Reduction using PCA"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: false
+    toc_depth: 5
+    smooth_scroll: false
+    number_sections: false
+    highlight: textmate
+    theme: lumen
+---
+
+********
+###  Data 
+
+*Source:*
+
+World Health Organisation (WHO)
+
+*Context: *
+
+In a nutshell, the study focuses on immunization, mortality, economic, social and other health related factors that affect life expectancy in countries from the year 2000 to 2015.  Since the observations this dataset are based on different countries, it will be easier for a country to determine the predicting factor which is contributing to lower value of life expectancy. This will help in suggesting a country which area should be given importance in order to efficiently improve the life expectancy of its population. 
+
+More reference on this project can be found on [Kaggle](https://www.kaggle.com/kumarajarshi/life-expectancy-who)
+
+### Dimensionality Reduction {#Dimensionality-Reduction}
+
+#### Introduction
+Dimensionality reduction is a form of unsupervised machine learning algorithms that aims at converting datasets that have many dimensions into fewer dimensions using techniques such as feature selection and/or feature extraction. Dimensionality Reduction is usually applied while solving machine learning problems such as regression or classification problems. Benefits of Dimensionality Reduction include:
+
+* Compressing/Reducing storage space required
+* Less time in performing computations
+* Improves the predictive performance by reducing the curse of dimensionality, especially in non-regularised models. 
+* Solves multi-collinearity, hence improving model performance
+* Assits in Data Visualisation of at most data of 3 dimensional data
+
+Feature selection, as a way of dimensionality reduction involves selecting relevant features or variables using techniques such as wrappers and filters. Feature extraction on the other hand includes techniques such as Principal Component Analysis (PCA)
+
+#### Principal Component Analysis {#pca}
+Dimensionality reduction using feature extraction. PCA transforms a data that is "wide", i.e having many variables into smaller "principal components". Principal components refers to the structure of the dataset in relation to variance. Given a dataset with "x" number of variables, PCA provides a linear transformation where by the x number of variables are plotted on a plane. When plotted, these variables are now called coordinates. Transformation is done by finding the most significance variance in the first coordinate in the dataset. Afterwards, Follow-up coordinates should be independent or orthogonal to each other and should have lesser variance.
+
+##### Goals of PCA
+
+* Find linear combination of the original features/variables to create principal components. i.e. taking some features subtracting or adding all of them together. Results are called principal components.
+* From those features, maintain much variance in the data, for a given number of pricinpal components. 
+* The new features should be uncorrelated (orthogonal) to each other.
+
+##### Eigenvalues and Eigenvectors {#eigenvalues-eigenvectors}
+Eigenvalues and eigenvectors come in pairs. Every eigenvector has a corresponding eigenvalue. These two are used to measure how much variance is present in the data. Eigenvector provides a direction, e.g. vertical, eigenvalue will make us understand the level of variance of the dataset in that particular direction. Eigenvector with the highest eigenvalue will be the first principal component.
+
+Dimensions are represneted as vertices. A two dimension dataset contains both x and y axes along a plane. Each point on the plane represent an observation plotted as points. The goal of PCA is to find a very low dimension of the data while maintaining maximum amount of variance from the original data. If the dataset has two dimensions of the data, then PCA will map it to 1 dimension
+
+##### Computation {#Computation}
+PCA is performed on numerical datasets only. It is computed using the `prcomp()` function. One of the packages used to visualise the results is `factorExtra`.
+
+```{r 'libraries', include=FALSE}
+# Load the libraries
+library(easypackages)
+libraries("tidyverse","factoextra", "knitr","ggfortify","plotly")
+
+LifeExpectancy.raw <- read.csv(file = "../Data/WHO Life Expectancy Data.csv") %>%
+  filter(Status == "Developing") %>%
+  na.omit()
+dim(LifeExpectancy.raw)
+```
+
+
+```{r 'dataset'}
+# Load the dataset
+LifeExpectancy <- read.csv(file = "../Data/WHO Life Expectancy Data.csv")
+
+# Variables for feature extraction. Selected only Developing countries
+LifeExpectancy <- LifeExpectancy %>%
+  filter(Status == "Developing") %>%
+  select(-c("Country","Year","Status","LifeExpectancy")) %>%
+  na.omit()
+dim_desc(LifeExpectancy)
+```
+Before performing PCA, data has to be normalised. Feature scaling is done to achieve the goal of converting the observations found in the variables to a standardised scale, without any distortion of the values. Afterwards, one creates a PCA model using the `prcomp()` function
+
+```{r, 'model'}
+# PCA Model
+normalised.le <- scale(LifeExpectancy)
+pca.le <- prcomp(normalised.le, scale. = FALSE, center = TRUE)
+```
+
+A `summary()` of the model created returns diagnostic results of principal components denoted by PC1, PC2, PC3.... Importance of the components are measured using the following: Standard Deviation, Proportion of Variance and Cumulative Proportion.
+
+* **Standard Deviation** in this case is the eigenvalues
+* **Proportion of Variance** is the amount of variance the principal components contributes? to the dataset 
+* **Cumulative Proportion** is the sum of previous principal components and the standard deviations of the principal componets
+
+```{r, 'pcaSummary'}
+summary(pca.le)
+```
+
+The model output has 18 principal components. Each of these components explains the percentage of variation in the dataset. From the `summary()` we can conclude that PC1 accounts to around 28% of the total variance in the dataset. This means that almost a third of the variables can be encapsulated by that one principal component. PC2 accounts to 15% of the total variance in the dataset. When you combine PC1 and PC2 we can account to around 43% of the total variance in the dataset. The first five principal components will account for at least 70% of the variance in the dataset
+
+##### Plots {#Plots}
+Biplots describe variation and plots correlation of original features as vectors mapped on the first two principal components. Schooling, BMI, Income Composition of Resources B and Alcohol are some of the features that have large positive loadings on the first principal component. Adult Mortality, HIV and Aids have a negative loading on the second principal component. There're quite a number of outliers in the positive loadings of the second principal component. The data is quite imbalanced interms of the status of the countries. Also globally, there are more developing countries than developed.
+
+```{r 'biplot'}
+# PCA Biplot
+fviz_pca_biplot(pca.le)
+# Individual variables with the gradient scale of their contribution in the Principal Components
+fviz_pca_var(pca.le, col.var="contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE
+)
+
+## Use ggfortify in plotting & add the response column
+autoplot(pca.le, loadings = TRUE, 
+         loadings.labels = TRUE, data = LifeExpectancy.raw, colour='LifeExpectancy', labels=TRUE) + theme_light() + 
+  labs(title = "Biplot with response column values as a legend")
+```
+
+Screeplot on the other hand shows the proportion of variance explained by each principal component, proportions will aloways decline with the number of principal component. Components to be used are in the steep curve, just before the bend. You'll access the components in from the pca model
+
+```{r 'screeplot', results="hide"}
+fviz_screeplot(pca.le, addlabels=TRUE,ylim = c(0, 35))
+```
+
+
+#### References {#References}
+
+* [Analytics Vidhya: Beginners Guide To Learn Dimension Reduction Techniques](https://www.analyticsvidhya.com/blog/2015/07/dimension-reduction-methods/)
+* [DataCamp: Principal Component Analysis in R](https://www.datacamp.com/community/tutorials/pca-analysis-r#intro)
+* [Towards Data Science: Principal Component Analysis (PCA) 101, using R](https://towardsdatascience.com/principal-component-analysis-pca-101-using-r-361f4c53a9ff)
